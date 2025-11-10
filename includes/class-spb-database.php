@@ -131,15 +131,6 @@ class Database {
 	}
 
 	/**
-	 * Deactivation.
-	 *
-	 * @return void
-	 */
-	public static function deactivate() {
-		// No action on deactivate (data retention).
-	}
-
-	/**
 	 * Insert a new API key, storing only secure hashes and fingerprints.
 	 *
 	 * @param string      $name            Key name/label.
@@ -162,24 +153,26 @@ class Database {
 		$sec_fp   = hash( 'sha256', $secret_plain );
 		$hint     = substr( $api_key_plain, 0, 4 ) . '...' . substr( $api_key_plain, -4 );
 
-		$inserted = $wpdb->insert(
-			$table,
-			array(
-				'name'             => $name,
-				'api_key_hash'     => $api_hash,
-				'secret_key_hash'  => $sec_hash,
-				'api_key_fp'       => $api_fp,
-				'secret_key_fp'    => $sec_fp,
-				'key_hint'         => $hint,
-				'status'           => 'active',
-				'created_at'       => $now,
-				'expires_at'       => $expires_at,
-				'last_used'        => null,
-				'request_count'    => 0,
-				'last_ip'          => null,
-			),
-			array( '%s','%s','%s','%s','%s','%s','%s','%s','%s', null, '%d', null )
+		// Build insert data and formats. Omit nullable columns to persist actual NULLs.
+		$data = array(
+			'name'            => $name,
+			'api_key_hash'    => $api_hash,
+			'secret_key_hash' => $sec_hash,
+			'api_key_fp'      => $api_fp,
+			'secret_key_fp'   => $sec_fp,
+			'key_hint'        => $hint,
+			'status'          => 'active',
+			'created_at'      => $now,
+			'request_count'   => 0,
 		);
+		$format = array( '%s','%s','%s','%s','%s','%s','%s','%s','%d' );
+
+		if ( ! empty( $expires_at ) ) {
+			$data['expires_at'] = $expires_at;
+			$format[]           = '%s';
+		}
+
+		$inserted = $wpdb->insert( $table, $data, $format );
 
 		if ( false === $inserted ) {
 			return false;
@@ -322,23 +315,39 @@ class Database {
 	public static function log_request( $data ) {
 		global $wpdb;
 		$table = self::table( 'logs' );
-		$wpdb->insert(
-			$table,
-			array(
-				'request_id'    => isset( $data['request_id'] ) ? $data['request_id'] : '',
-				'api_key_id'    => isset( $data['api_key_id'] ) ? $data['api_key_id'] : null,
-				'timestamp'     => current_time( 'mysql', true ),
-				'endpoint'      => isset( $data['endpoint'] ) ? $data['endpoint'] : '',
-				'method'        => isset( $data['method'] ) ? $data['method'] : 'POST',
-				'status_code'   => isset( $data['status_code'] ) ? (int) $data['status_code'] : 0,
-				'result'        => isset( $data['result'] ) ? $data['result'] : '',
-				'ip_address'    => isset( $data['ip_address'] ) ? $data['ip_address'] : '',
-				'user_agent'    => isset( $data['user_agent'] ) ? $data['user_agent'] : '',
-				'message'       => isset( $data['message'] ) ? $data['message'] : '',
-				'pages_created' => isset( $data['pages_created'] ) ? (int) $data['pages_created'] : 0,
-			),
-			array( '%s','%d','%s','%s','%d','%s','%s','%s','%s','%d' )
+		$insert_data = array(
+			'request_id'    => isset( $data['request_id'] ) ? $data['request_id'] : '',
+			'timestamp'     => current_time( 'mysql', true ),
+			'endpoint'      => isset( $data['endpoint'] ) ? $data['endpoint'] : '',
+			'method'        => isset( $data['method'] ) ? $data['method'] : 'POST',
+			'status_code'   => isset( $data['status_code'] ) ? (int) $data['status_code'] : 0,
+			'result'        => isset( $data['result'] ) ? $data['result'] : '',
+			'ip_address'    => isset( $data['ip_address'] ) ? $data['ip_address'] : '',
+			'user_agent'    => isset( $data['user_agent'] ) ? $data['user_agent'] : '',
+			'message'       => isset( $data['message'] ) ? $data['message'] : '',
+			'pages_created' => isset( $data['pages_created'] ) ? (int) $data['pages_created'] : 0,
 		);
+		$formats = array( '%s','%s','%s','%s','%d','%s','%s','%s','%s','%d' );
+		if ( isset( $data['api_key_id'] ) && null !== $data['api_key_id'] ) {
+			$insert_data['api_key_id'] = (int) $data['api_key_id'];
+			// Insert api_key_id near the top for clarity, but formats order must match values order.
+			// Rebuild arrays to ensure correct order.
+			$insert_data = array(
+				'request_id'    => $insert_data['request_id'],
+				'api_key_id'    => $insert_data['api_key_id'],
+				'timestamp'     => $insert_data['timestamp'],
+				'endpoint'      => $insert_data['endpoint'],
+				'method'        => $insert_data['method'],
+				'status_code'   => $insert_data['status_code'],
+				'result'        => $insert_data['result'],
+				'ip_address'    => $insert_data['ip_address'],
+				'user_agent'    => $insert_data['user_agent'],
+				'message'       => $insert_data['message'],
+				'pages_created' => $insert_data['pages_created'],
+			);
+			$formats = array( '%s','%d','%s','%s','%d','%s','%s','%s','%s','%d' );
+		}
+		$wpdb->insert( $table, $insert_data, $formats );
 		return (int) $wpdb->insert_id;
 	}
 
@@ -351,19 +360,30 @@ class Database {
 	public static function log_webhook( $data ) {
 		global $wpdb;
 		$table = self::table( 'webhook_logs' );
-		$wpdb->insert(
-			$table,
-			array(
-				'request_id'   => isset( $data['request_id'] ) ? $data['request_id'] : '',
-				'url'          => isset( $data['url'] ) ? $data['url'] : '',
-				'status'       => isset( $data['status'] ) ? $data['status'] : '',
-				'http_code'    => isset( $data['http_code'] ) ? (int) $data['http_code'] : null,
-				'attempts'     => isset( $data['attempts'] ) ? (int) $data['attempts'] : 1,
-				'response_body'=> isset( $data['response_body'] ) ? $data['response_body'] : null,
-				'created_at'   => current_time( 'mysql', true ),
-			),
-			array( '%s','%s','%s','%d','%d', null, '%s' )
+		$insert_data = array(
+			'request_id'  => isset( $data['request_id'] ) ? $data['request_id'] : '',
+			'url'         => isset( $data['url'] ) ? $data['url'] : '',
+			'status'      => isset( $data['status'] ) ? $data['status'] : '',
+			'attempts'    => isset( $data['attempts'] ) ? (int) $data['attempts'] : 1,
+			'created_at'  => current_time( 'mysql', true ),
 		);
+		$formats = array( '%s','%s','%s','%d','%s' );
+		if ( isset( $data['http_code'] ) && null !== $data['http_code'] ) {
+			$insert_data['http_code'] = (int) $data['http_code'];
+		}
+		if ( array_key_exists( 'response_body', $data ) ) {
+			$insert_data['response_body'] = $data['response_body'];
+		}
+		// Ensure formats align with keys order.
+		$formats = array();
+		foreach ( $insert_data as $k => $v ) {
+			if ( in_array( $k, array( 'attempts', 'http_code' ), true ) ) {
+				$formats[] = '%d';
+			} else {
+				$formats[] = '%s';
+			}
+		}
+		$wpdb->insert( $table, $insert_data, $formats );
 		return (int) $wpdb->insert_id;
 	}
 
@@ -379,15 +399,22 @@ class Database {
 		$table = self::table( 'created_pages' );
 		$now   = current_time( 'mysql', true );
 		foreach ( $post_ids as $pid ) {
-			$wpdb->insert(
-				$table,
-				array(
-					'post_id'    => (int) $pid,
-					'api_key_id' => $api_key_id ? (int) $api_key_id : null,
-					'created_at' => $now,
-				),
-				array( '%d','%d','%s' )
+			$row = array(
+				'post_id'    => (int) $pid,
+				'created_at' => $now,
 			);
+			$formats = array( '%d','%s' );
+			if ( $api_key_id ) {
+				$row['api_key_id'] = (int) $api_key_id;
+				// Reorder to keep consistent order.
+				$row = array(
+					'post_id'    => $row['post_id'],
+					'api_key_id' => $row['api_key_id'],
+					'created_at' => $row['created_at'],
+				);
+				$formats = array( '%d','%d','%s' );
+			}
+			$wpdb->insert( $table, $row, $formats );
 		}
 	}
 

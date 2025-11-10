@@ -3,7 +3,7 @@
  * Plugin Name:       Simple Page Builder
  * Description:       Bulk create WordPress pages via a secure REST API with API key auth, rate limiting, logging, webhooks, and an admin UI.
  * Version:           1.0.0
- * Author:            Your Company
+ * Author:            Simple Page Builder
  * Text Domain:       simple-page-builder
  * Requires at least: 6.0
  * Requires PHP:      7.4

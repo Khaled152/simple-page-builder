@@ -42,9 +42,7 @@ class Auth {
 			if ( stripos( $auth_header, 'bearer ' ) === 0 ) {
 				$jwt = trim( substr( $auth_header, 7 ) );
 			}
-			if ( '' === $jwt ) {
-				$jwt = (string) $request->get_header( 'x-spb-jwt' );
-			}
+			$jwt = '' !== $jwt ? $jwt : trim( (string) $request->get_header( 'x-spb-jwt' ) );
 			if ( '' === $jwt ) {
 				return new WP_Error( 'spb_auth_missing', __( 'Missing JWT token.', 'simple-page-builder' ), array( 'status' => 401 ) );
 			}

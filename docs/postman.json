@@ -1,0 +1,39 @@
+{
+  "info": {
+    "name": "Simple Page Builder",
+    "_postman_id": "b1b9d5aa-5d0a-4ef9-9a7c-2e0ad3f0a001",
+    "description": "Postman collection for Simple Page Builder API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Pages",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-SPB-API-Key", "value": "{{spb_api_key}}" },
+          { "key": "X-SPB-API-Secret", "value": "{{spb_api_secret}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"pages\": [\n    {\"title\": \"About Us\", \"content\": \"<p>About content</p>\", \"slug\": \"about\"},\n    {\"title\": \"Contact\", \"content\": \"Contact details\"}\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/wp-json/pagebuilder/v1/create-pages",
+          "host": [ "{{base_url}}" ],
+          "path": [ "wp-json", "pagebuilder", "v1", "create-pages" ]
+        },
+        "description": "Bulk create pages. Returns created page IDs, titles, and URLs."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://localhost" },
+    { "key": "spb_api_key", "value": "" },
+    { "key": "spb_api_secret", "value": "" }
+  ]
+}
+
+

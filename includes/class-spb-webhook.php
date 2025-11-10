@@ -31,17 +31,24 @@ class Webhook {
 			$url = Settings::get( 'default_webhook_url', '' );
 		}
 		$url = trim( (string) $url );
+		$url = apply_filters( 'spb_webhook_url', $url, $request_id, $api_key, $pages );
 		if ( '' === $url ) {
 			return;
 		}
 
-		$payload = array(
+		$payload = apply_filters(
+			'spb_webhook_payload',
+			array(
 			'event'        => 'pages_created',
 			'timestamp'    => iso8601_now(),
 			'request_id'   => $request_id,
 			'api_key_name' => isset( $api_key['name'] ) ? $api_key['name'] : '',
 			'total_pages'  => count( $pages ),
 			'pages'        => array_values( $pages ),
+			),
+			$request_id,
+			$api_key,
+			$pages
 		);
 
 		$secret     = (string) Settings::get( 'webhook_secret', '' );
@@ -51,26 +58,29 @@ class Webhook {
 			$signature = hash_hmac( 'sha256', $body, $secret );
 		}
 
-		$max_retries = 2;
+		$headers = array(
+			'Content-Type'        => 'application/json',
+			'X-Webhook-Signature' => $signature,
+		);
+		$headers = apply_filters( 'spb_webhook_headers', $headers, $request_id, $url, $payload );
+
+		$max_retries = (int) apply_filters( 'spb_webhook_max_retries', 2, $request_id, $url, $payload );
 		$attempt     = 0;
-		$delays      = array( 1, 2 ); // seconds.
+		$delays      = (array) apply_filters( 'spb_webhook_retry_delays', array( 1, 2 ), $request_id, $url, $payload ); // seconds.
 		$success     = false;
 		$response    = null;
 		$http_code   = 0;
 
 		do {
 			$attempt++;
-			$response = wp_remote_post(
-				$url,
-				array(
-					'headers' => array(
-						'Content-Type'         => 'application/json',
-						'X-Webhook-Signature'  => $signature,
-					),
-					'body'    => $body,
-					'timeout' => 20,
-				)
+			do_action( 'spb_webhook_attempt', $attempt, $request_id, $url, $payload );
+			$args = array(
+				'headers' => $headers,
+				'body'    => $body,
+				'timeout' => 20,
 			);
+			$args     = apply_filters( 'spb_webhook_request_args', $args, $request_id, $url, $payload );
+			$response = wp_remote_post( $url, $args );
 
 			if ( ! is_wp_error( $response ) ) {
 				$http_code = (int) wp_remote_retrieve_response_code( $response );
@@ -89,6 +99,8 @@ class Webhook {
 				}
 			}
 		} while ( $attempt <= $max_retries );
+
+		do_action( 'spb_webhook_result', $success, $http_code, $request_id, $url, $response, $payload );
 
 		// Log webhook result.
 		$response_body = is_wp_error( $response ) ? $response->get_error_message() : wp_remote_retrieve_body( $response );

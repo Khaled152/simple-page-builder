@@ -121,6 +121,42 @@ class REST_Controller {
 			return new WP_Error( 'spb_invalid_payload', __( 'Payload must include a non-empty "pages" array.', 'simple-page-builder' ), array( 'status' => 400 ) );
 		}
 
+		$max_pages = (int) apply_filters( 'spb_max_pages_per_request', 100, $request, $api_key_row );
+		if ( count( $pages ) > $max_pages ) {
+			Logger::log_request(
+				array(
+					'request_id'  => $request_id,
+					'api_key_id'  => $key_id,
+					'endpoint'    => '/create-pages',
+					'method'      => 'POST',
+					'status_code' => 400,
+					'result'      => 'failed',
+					'ip_address'  => $ip,
+					'user_agent'  => $ua,
+					'message'     => sprintf( 'Too many pages in one request. Max allowed: %d', $max_pages ),
+				)
+			);
+			return new WP_Error(
+				'spb_too_many_pages',
+				sprintf(
+					/* translators: %d: max pages */
+					__( 'Too many pages in one request. Maximum allowed is %d.', 'simple-page-builder' ),
+					$max_pages
+				),
+				array( 'status' => 400 )
+			);
+		}
+
+		/**
+		 * Fires before creating pages from the API.
+		 *
+		 * @param string          $request_id Request identifier.
+		 * @param array           $api_key_row Authenticated API key row.
+		 * @param array           $pages      Raw pages payload.
+		 * @param WP_REST_Request $request    The REST request.
+		 */
+		do_action( 'spb_before_create_pages', $request_id, $api_key_row, $pages, $request );
+
 		$created      = array();
 		$created_ids  = array();
 		$errors       = array();
@@ -135,15 +171,18 @@ class REST_Controller {
 				continue;
 			}
 
+			$post_status = apply_filters( 'spb_default_post_status', 'publish', $page, $api_key_row, $request );
 			$postarr = array(
 				'post_type'    => 'page',
-				'post_status'  => 'publish',
+				'post_status'  => $post_status,
 				'post_title'   => $title,
 				'post_content' => $content,
 			);
 			if ( '' !== $slug ) {
 				$postarr['post_name'] = $slug;
 			}
+
+			$postarr = apply_filters( 'spb_create_page_postarr', $postarr, $page, $api_key_row, $request );
 
 			$post_id = wp_insert_post( $postarr, true );
 			if ( is_wp_error( $post_id ) ) {
@@ -159,6 +198,17 @@ class REST_Controller {
 				'url'   => get_permalink( $post_id ),
 			);
 		}
+
+		/**
+		 * Fires after attempting to create pages from the API.
+		 *
+		 * @param string          $request_id Request identifier.
+		 * @param array           $api_key_row Authenticated API key row.
+		 * @param array           $created    Created pages summary.
+		 * @param array           $errors     Error entries for failed pages.
+		 * @param WP_REST_Request $request    The REST request.
+		 */
+		do_action( 'spb_after_create_pages', $request_id, $api_key_row, $created, $errors, $request );
 
 		if ( ! empty( $created_ids ) ) {
 			Database::record_created_pages( $key_id, $created_ids );
