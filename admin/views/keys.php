@@ -6,7 +6,6 @@
  */
 
 use SPB\Database;
-use SPB\Settings;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -94,12 +93,5 @@ if ( empty( $keys ) ) :
 		</tbody>
 	</table>
 <?php endif; ?>
-
-<?php
-$auth_mode = Settings::get( 'auth_mode', 'api_key' );
-if ( 'jwt' === $auth_mode ) {
-	echo '<p class="description" style="margin-top:10px;">' . esc_html__( 'JWT mode is enabled: use the API Key to compute ak_fp inside your JWT and sign with the Webhook Secret. The Secret Key shown above is not used in JWT mode.', 'simple-page-builder' ) . '</p>';
-}
-?>
 
 
