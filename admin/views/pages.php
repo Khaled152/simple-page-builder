@@ -21,6 +21,7 @@ $rows = Database::query_created_pages(
 ?>
 
 <h2><?php esc_html_e( 'Pages Created via API', 'simple-page-builder' ); ?></h2>
+<p class="description"><?php esc_html_e( 'Showing up to the 100 most recent entries. Timestamps are in UTC.', 'simple-page-builder' ); ?></p>
 
 <form method="get" action="">
 	<input type="hidden" name="page" value="spb-page-builder">

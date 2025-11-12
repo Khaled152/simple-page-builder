@@ -33,6 +33,13 @@ Send these headers with every request:
 
 Keys are shown only once when generated. Store them safely.
 
+### Optional: JWT mode
+
+- Enable JWT in Tools → Page Builder → Settings (Authentication Mode = JWT).
+- Send `Authorization: Bearer <jwt>` (or `X-SPB-JWT: <jwt>`).
+- JWT must be HS256-signed with the Webhook Secret and include `ak_fp = sha256(API Key)` and `exp`.
+- A simple JWT generator is available in the plugin Settings page (admin utility).
+
 ## Endpoint
 
 `POST /wp-json/pagebuilder/v1/create-pages`

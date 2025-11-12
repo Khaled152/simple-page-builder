@@ -27,6 +27,7 @@ $rows = Database::query_logs( $args );
 ?>
 
 <h2><?php esc_html_e( 'API Activity Log', 'simple-page-builder' ); ?></h2>
+<p class="description"><?php esc_html_e( 'Times are shown in UTC. Use filters to narrow results or export as CSV.', 'simple-page-builder' ); ?></p>
 <form method="get" action="">
 	<input type="hidden" name="page" value="spb-page-builder">
 	<input type="hidden" name="tab" value="logs">
