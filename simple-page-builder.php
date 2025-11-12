@@ -66,12 +66,12 @@ function spb_init() {
 }
 add_action( 'plugins_loaded', 'spb_init' );
 
-// /**
-//  * Plugin loaded text domain (if translations are provided in future).
-//  */
-// function spb_load_textdomain() {
-// 	load_plugin_textdomain( 'simple-page-builder', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
-// }
-// add_action( 'init', 'spb_load_textdomain' );
+/**
+ * Plugin loaded text domain (if translations are provided in future).
+ */
+function spb_load_textdomain() {
+	load_plugin_textdomain( 'simple-page-builder', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+}
+add_action( 'init', 'spb_load_textdomain' );
 
 
